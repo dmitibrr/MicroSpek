@@ -206,11 +206,20 @@ def collect_dxdiag(timeout: float = 60.0) -> Section:
         groups.append(Group(f"Дисплей {index} — {display.get('name', '?')}", items))
         if index == 1:
             summary.append(Item("Видеокарта (dxdiag)", first(display.get("name"))))
-    for index, sound in enumerate(report.get("sound") or [], start=1):
+    seen_sounds: set[str] = set()
+    sound_index = 0
+    for sound in report.get("sound") or []:
+        name = str(sound.get("name") or "").strip()
+        key = name.lower()
+        if key and key in seen_sounds:
+            continue
+        if key:
+            seen_sounds.add(key)
+        sound_index += 1
         items = [
-            Item(SOUND_LABELS.get(key, key), value)
-            for key, value in sound.items()
-            if value and key != "name"
+            Item(SOUND_LABELS.get(key_, key_), value)
+            for key_, value in sound.items()
+            if value and key_ != "name"
         ]
-        groups.append(Group(f"Звук {index} — {sound.get('name', '?')}", items))
+        groups.append(Group(f"Звук {sound_index} — {name or '?'}", items))
     return Section("dxdiag", "DirectX (dxdiag)", groups, summary)

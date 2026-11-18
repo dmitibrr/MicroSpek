@@ -14,7 +14,7 @@ $parts = @(Get-CimInstance Win32_DiskPartition | Select-Object DeviceID,DiskInde
 $logical = @(Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,VolumeName,Size,FreeSpace,FileSystem,DriveType,VolumeSerialNumber)
 $maps = @(Get-CimInstance Win32_LogicalDiskToPartition | ForEach-Object {
     [pscustomobject]@{ letter=$_.Dependent.DeviceID; part=$_.Antecedent.DeviceID } })
-$phys = @(Get-PhysicalDisk | Select-Object FriendlyName,SerialNumber,MediaType,HealthStatus,OperationalStatus,FirmwareVersion,Size)
+$phys = @(Get-PhysicalDisk | Select-Object FriendlyName,SerialNumber,MediaType,HealthStatus,OperationalStatus,FirmwareVersion,Size,BusType)
 $rel = @(Get-PhysicalDisk | ForEach-Object {
     $d = $_
     $c = Get-StorageReliabilityCounter -PhysicalDisk $d -ErrorAction SilentlyContinue
@@ -84,8 +84,10 @@ def _volume_used(letters: str, volumes: dict[str, dict]) -> int | None:
 
 
 def _kind(part: dict, letters: str) -> str:
-    type_name = str(part.get("Type") or "").lower()
-    if "system" in type_name or "efi" in type_name:
+    type_name = str(part.get("Type") or "").strip().lower()
+    # Не используем подстроку "system": тип "Installable File System" — это
+    # обычные данные, а не EFI (такой баг проявился на Lenovo ThinkCentre M79).
+    if type_name in ("gpt: system", "system", "efi system partition") or "efi system" in type_name:
         return "efi"
     if "recovery" in type_name:
         return "recovery"
@@ -136,7 +138,8 @@ def collect_storage() -> tuple[Section, list[DiskLayout]]:
             Item(f"{title} — модель", first(disk.get("Model"))),
             Item(f"{title} — объём", format_bytes(disk.get("Size"))),
             Item(f"{title} — тип", first(extra.get("MediaType"), default=first(disk.get("MediaType")))),
-            Item(f"{title} — интерфейс", first(disk.get("InterfaceType"))),
+            Item(f"{title} — шина / интерфейс", first(extra.get("BusType")) or first(disk.get("InterfaceType"))),
+            Item(f"{title} — интерфейс (WMI)", first(disk.get("InterfaceType"))),
             Item(f"{title} — прошивка", first(disk.get("FirmwareRevision")) or first(extra.get("FirmwareVersion"))),
             Item(f"{title} — серийный номер", first(disk.get("SerialNumber")), sensitive=True),
             Item(f"{title} — состояние", first(extra.get("HealthStatus")) or first(disk.get("Status"))),

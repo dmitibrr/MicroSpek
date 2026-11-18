@@ -25,10 +25,16 @@ NVIDIA_FIELDS = (
     "memory.total", "clocks.sm", "power.draw", "fan.speed", "driver_version",
 )
 
+# Значения D3DKMDT_VIDEO_OUTPUT_TECHNOLOGY (документация Microsoft):
+# 0=HD15/VGA, 1=S-video, 2=composite, 3=component, 4=DVI, 5=HDMI,
+# 6=LVDS/DSI, 8=D-JPN, 9=SDI, 10=DisplayPort, 11=eDP, 12/13=UDI,
+# 14=SDTV-переходник, 15=Miracast, 16=Indirect wired, 0x80000000=внутренний.
 VIDEO_OUTPUT = {
-    0: "Другое", 1: "VGA", 2: "DVI", 3: "Composite", 4: "HDMI",
-    5: "DisplayPort", 6: "LVDS / eDP", 7: "S-video", 8: "Компонентный",
-    10: "Miracast",
+    0: "VGA (HD15)", 1: "S-video", 2: "Composite", 3: "Компонентный",
+    4: "DVI", 5: "HDMI", 6: "LVDS / DSI", 8: "D-JPN", 9: "SDI",
+    10: "DisplayPort", 11: "DisplayPort (встроенный)",
+    12: "UDI", 13: "UDI (встроенный)", 14: "SDTV-переходник",
+    15: "Miracast", 16: "Indirect wired", 0x80000000: "Внутренний",
 }
 
 

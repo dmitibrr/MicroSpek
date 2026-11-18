@@ -29,11 +29,14 @@ ARCH = {0: "x86", 5: "ARM", 6: "Itanium", 9: "x64", 12: "ARM64"}
 
 
 def _kb_to_bytes(raw: object) -> object:
-    """WMI reports L2/L3 cache sizes in kilobytes."""
+    """WMI reports L2/L3 cache sizes in kilobytes; 0 means 'not reported'."""
     try:
-        return int(raw) * 1024  # type: ignore[arg-type]
+        value = int(raw)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return None
+    if value <= 0:
+        return None
+    return value * 1024
 
 
 def _voltage(raw: object) -> str:

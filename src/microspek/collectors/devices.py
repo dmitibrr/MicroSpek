@@ -15,8 +15,8 @@ $bt = @(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue |
     Where-Object {$_.InstanceId -like 'BTHENUM\DEV_*' -or $_.FriendlyName -like '*Bluetooth Adapter*' -or $_.FriendlyName -like '*Bluetooth USB*'} |
     Select-Object FriendlyName,Status,InstanceId)
 $btDriver = @(Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue |
-    Where-Object {$_.DeviceClass -eq 'Bluetooth' -and $_.DeviceName -like '*Adapter*'} |
-    Select-Object DeviceName,DriverVersion,Manufacturer)
+    Where-Object {$_.DeviceClass -eq 'Bluetooth'} |
+    Select-Object DeviceName,DriverVersion,Manufacturer,Description)
 $problems = @(Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue |
     Where-Object {$_.ConfigManagerErrorCode -ne 0} |
     Select-Object Name,ConfigManagerErrorCode,Status)
@@ -73,9 +73,20 @@ def collect_devices() -> Section:
 
     audio_names = _unique_names([row for row in audio if str(row.get("Status")).lower() == "ok"])
     mode = _storage_mode(storage)
+    driver_rows = [
+        row for row in bt_driver
+        if "adapter" in str(row.get("DeviceName") or "").lower()
+        or "adapter" in str(row.get("Description") or "").lower()
+    ]
+    if not driver_rows:
+        driver_rows = [
+            {"DeviceName": device.get("FriendlyName")}
+            for device in bluetooth
+            if "adapter" in str(device.get("FriendlyName") or "").lower()
+        ]
     summary = [
         Item("Звуковые устройства", ", ".join(audio_names[:3]) or "—"),
-        Item("Bluetooth-адаптер", first(bt_driver[0].get("DeviceName")) if bt_driver
+        Item("Bluetooth-адаптер", first(driver_rows[0].get("DeviceName")) if driver_rows
              else (first(bluetooth[0].get("FriendlyName")) if bluetooth else "—")),
         Item("Проблемные устройства", str(len(problems))),
         Item("Режим SATA", mode),
@@ -88,7 +99,7 @@ def collect_devices() -> Section:
         + [Item(f"Драйвер {index}", name) for index, name in enumerate(_unique_names(media), start=1)],
     ))
     bt_items: list[Item] = []
-    for index, adapter in enumerate(bt_driver or [{}], start=1):
+    for index, adapter in enumerate(driver_rows or [{}], start=1):
         bt_items.extend([
             Item(f"Адаптер {index}", first(adapter.get("DeviceName"))),
             Item(f"Адаптер {index} — производитель", first(adapter.get("Manufacturer"))),

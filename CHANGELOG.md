@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here.
 
+## [0.1.1] — 2026-11-18
+
+Fixes found in real snapshots (own PC + Lenovo ThinkCentre M79 / 10JA):
+
+- Monitor connection codes now follow D3DKMDT_VIDEO_OUTPUT_TECHNOLOGY:
+  4 = DVI, 5 = HDMI, 10 = DisplayPort, 15 = Miracast (previous mapping was
+  off by one; DVI was shown as HDMI and DisplayPort as Miracast).
+- Disk segment kind: partition type "Installable File System" is no longer
+  mistaken for EFI (it contains the substring "system").
+- CPU cache: L3 = 0 from WMI (AMD A10 PRO-7800B) is shown as "—", not "0 Б".
+- Disk interface: prefer MSFT_PhysicalDisk.BusType (SATA/NVMe/USB) instead of
+  the useless "IDE" stub from Win32_DiskDrive.
+- Bluetooth adapter: driver lookup no longer requires "Adapter" in the PnP
+  driver name; falls back to the adapter device from Get-PnpDevice.
+- dxdiag: duplicate sound device names are no longer repeated.
+- CLI: `--file` without `--output` now saves a TXT snapshot.
+- Added regression tests for all of the above.
+
 ## [0.1.0] — 2026-11-18
 
 First public release.
