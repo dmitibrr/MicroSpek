@@ -67,8 +67,8 @@ pushd "%MS_HOME%" >nul
 set "PYTHONPATH=%MS_HOME%src"
 """ + PY_CHECK + """
 echo Collecting snapshot (without slow dxdiag)...
-%PY% -m microspek --snapshot --no-dxdiag --file "%MS_HOME%snapshot_FULL.txt"
-%PY% -m microspek --snapshot --no-dxdiag --redact --file "%MS_HOME%snapshot_SAFE.txt"
+%PY% -m microspek --output txt --no-dxdiag --file "%MS_HOME%snapshot_FULL.txt"
+%PY% -m microspek --output txt --no-dxdiag --redact --file "%MS_HOME%snapshot_SAFE.txt"
 echo.
 echo FULL: %MS_HOME%snapshot_FULL.txt
 echo SAFE: %MS_HOME%snapshot_SAFE.txt   ^<- send this one back

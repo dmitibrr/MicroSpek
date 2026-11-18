@@ -53,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     args = build_parser().parse_args(argv)
+    # --file без --output всегда означает «сохранить текстовый слепок».
+    if args.file and not args.output:
+        args.output = "txt"
     has_action = args.summary or args.snapshot or args.output or args.gui
     if not has_action:
         from .gui import run_gui

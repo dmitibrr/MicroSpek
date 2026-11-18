@@ -3,7 +3,20 @@
 Утилита для сбора характеристик ПК: аналог fastfetch + CPU-Z с GUI, CLI,
 визуализацией разметки дисков и кнопкой «сделать слепок» в TXT для ИИ.
 
-## Запуск
+## Готовый exe (Windows)
+
+Для распространения без Python соберите standalone-сборку:
+
+```powershell
+python -m pip install pyinstaller
+python scripts/build_exe.py
+```
+
+Получится `dist/MicroSpek-<version>-WIN64.zip` с двумя программами:
+`MicroSpek-GUI.exe` (оконный интерфейс) и `microspek.exe` (консольная команда),
+а также `Слепок.cmd` и инструкция. Python друзьям не нужен.
+
+## Запуск из исходников
 
 Из корня проекта:
 
