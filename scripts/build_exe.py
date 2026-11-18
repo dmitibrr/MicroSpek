@@ -52,7 +52,7 @@ def run_pyinstaller(work: Path, name: str, entry: str, windowed: bool) -> Path:
 
 SNAPSHOT_CMD = """@echo off
 setlocal
-"%~dp0microspek.exe" --output txt --redact --no-dxdiag --file "%~dp0snapshot_SAFE.txt"
+"%~dp0microspek.exe" --output txt --redact --no-dxdiag --admin-sensors --file "%~dp0snapshot_SAFE.txt"
 echo.
 echo Готово: %~dp0snapshot_SAFE.txt
 echo Отправьте этот файл обратно.
@@ -64,17 +64,23 @@ endlocal
 HOWTO = """MicroSpek — как пользоваться тестовой сборкой
 ===============================================
 
-Это standalone-прога: Python и библиотеки уже внутри .exe.
-Ничего ставить НЕ НУЖНО. Просто распакуйте папку, например, в Документы.
+Это standalone-программа: Python и нужные библиотеки уже внутри .exe.
+Ставить ничего не нужно. Распакуйте папку целиком (например, в Документы).
+Папку sensors удалять нельзя — в ней сборщик датчиков (температуры и SMART).
 
 1) Двойной клик по MicroSpek-GUI.exe
    Откроется окно программы. Через несколько секунд соберутся данные
    (вкладки: Сводка, ОС, Процессор, Память, Диски, Видеокарта, Сеть, Устройства).
    Нажмите кнопку «Слепок TXT» и сохраните файл — его можно прислать нам.
 
+   Кнопка «Датчики (админ)» пересобирает данные с правами администратора:
+   появляются температуры CPU, обороты вентиляторов и SMART дисков.
+
 2) Или ещё проще: двойной клик по SNAPSHOT.cmd
    Сработает наша же консольная программа microspek.exe, создаст файл
    snapshot_SAFE.txt в этой папке и откроет его в Блокноте.
+   Windows спросит разрешение администратора — это нужно для температур и SMART.
+   Можно нажать «Нет»: слепок всё равно создастся, просто без этих датчиков.
    Пришлите snapshot_SAFE.txt обратно — по нему мы увидим, как собрались данные.
 
 3) microspek.exe — это консольная версия. Если открыть её в cmd, доступны:
@@ -82,23 +88,42 @@ HOWTO = """MicroSpek — как пользоваться тестовой сбо
      microspek.exe --snapshot --redact
      microspek.exe --output json --file report.json
      microspek.exe --output png --file report.png
+     microspek.exe --output txt --file fast.txt
+     microspek.exe --output txt --admin-sensors --file full.txt
 
 ЧТО ПРОВЕРИТЬ
 -------------
 - правильно ли определены процессор, память, диски, разделы, монитор, сеть;
+- видны ли температуры (Процессор, Видеокарта) и SMART-температуры дисков;
 - есть ли данные о звуке/Bluetooth и режиме загрузки (UEFI/Secure Boot);
 - не слишком ли много прочерков там, где на вашем ПК данные должны быть;
 - не падает ли окно и не подвисает ли на сборе.
 
-DXDiag в слепке по умолчанию выключен, чтобы не ждать до минуты.
-Прога работает только на Windows (сбор через PowerShell/CIM/WMI).
+Температуры CPU и обороты вентиляторов требуют драйвера PawnIO (ставится
+отдельно, один раз). Без него SMART дисков и датчики видеокарты всё равно
+работают. DXDiag в слепке по умолчанию выключен, чтобы не ждать до минуты.
+Программа работает только на Windows.
 """
+
+
+def ensure_sensors() -> Path:
+    """Build MicroSpekSensors.exe if it is not there yet."""
+    sensors_dir = ROOT / "build" / "sensors"
+    if not (sensors_dir / "MicroSpekSensors.exe").exists():
+        print(">>> Сборка MicroSpekSensors.exe")
+        subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "build_sensors.py")],
+            cwd=ROOT,
+            check=True,
+        )
+    return sensors_dir
 
 def build() -> Path:
     version = read_version()
     dist = ROOT / "dist"
     dist.mkdir(exist_ok=True)
     archive = dist / f"MicroSpek-{version}-WIN64.zip"
+    sensors_dir = ensure_sensors()
 
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
@@ -112,6 +137,11 @@ def build() -> Path:
         shutil.copy2(cli_exe, folder / "microspek.exe")
         (folder / "SNAPSHOT.cmd").write_text(SNAPSHOT_CMD, encoding="utf-8")
         (folder / "КАК_ПОЛЬЗОВАТЬСЯ.txt").write_text(HOWTO, encoding="utf-8")
+        shutil.copytree(
+            sensors_dir,
+            folder / "sensors",
+            ignore=shutil.ignore_patterns("*.xml", "*.pdb"),
+        )
 
         with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
             for path in sorted(folder.rglob("*")):

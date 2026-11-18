@@ -26,6 +26,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--redact", action="store_true", help="скрыть чувствительные поля")
     parser.add_argument("--no-dxdiag", action="store_true", help="не запускать dxdiag (быстрее)")
     parser.add_argument("--dxdiag-timeout", type=float, default=60.0, help="таймаут dxdiag в секундах")
+    parser.add_argument(
+        "--admin-sensors",
+        action="store_true",
+        help="запросить права администратора для температур CPU и SMART дисков",
+    )
     return parser
 
 
@@ -66,6 +71,9 @@ def main(argv: list[str] | None = None) -> int:
     snapshot = collect_snapshot(
         include_dxdiag=not args.no_dxdiag,
         dxdiag_timeout=args.dxdiag_timeout,
+        # When we write a file the user explicitly asked for a full snapshot, so
+        # it is worth one UAC prompt for CPU temperatures and disk SMART data.
+        elevate_sensors=args.admin_sensors,
     )
 
     if args.summary:

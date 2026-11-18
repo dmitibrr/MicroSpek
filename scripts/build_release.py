@@ -43,6 +43,14 @@ def build() -> Path:
             source = ROOT / name
             if source.exists():
                 shutil.copy2(source, staging / name)
+        for folder in ("scripts", "tools"):
+            source = ROOT / folder
+            if source.exists():
+                shutil.copytree(
+                    source,
+                    staging / folder,
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+                )
         skill_source = ROOT / ".opencode" / "skills" / "microspek"
         if skill_source.exists():
             shutil.copytree(skill_source, staging / ".opencode" / "skills" / "microspek")

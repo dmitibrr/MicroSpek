@@ -6,6 +6,7 @@ import re
 
 from ..models import DiskLayout, Group, Item, PartitionSegment, Section
 from ..util import first, format_bytes, format_duration, format_percent, format_temp, ps_json
+from . import sensors as sensor_hub
 
 SCRIPT = r"""
 $ErrorActionPreference='SilentlyContinue'
@@ -14,15 +15,11 @@ $parts = @(Get-CimInstance Win32_DiskPartition | Select-Object DeviceID,DiskInde
 $logical = @(Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,VolumeName,Size,FreeSpace,FileSystem,DriveType,VolumeSerialNumber)
 $maps = @(Get-CimInstance Win32_LogicalDiskToPartition | ForEach-Object {
     [pscustomobject]@{ letter=$_.Dependent.DeviceID; part=$_.Antecedent.DeviceID } })
-$phys = @(Get-PhysicalDisk | Select-Object FriendlyName,SerialNumber,MediaType,HealthStatus,OperationalStatus,FirmwareVersion,Size,BusType)
-$rel = @(Get-PhysicalDisk | ForEach-Object {
-    $d = $_
-    $c = Get-StorageReliabilityCounter -PhysicalDisk $d -ErrorAction SilentlyContinue
-    if ($c) { [pscustomobject]@{
-        name=$d.FriendlyName; serial=$d.SerialNumber; temp=$c.Temperature;
-        tempmax=$c.TemperatureMax; hours=$c.PowerOnHours; wear=$c.Wear;
-        readerr=$c.ReadErrorsTotal; writeerr=$c.WriteErrorsTotal } }
-})
+$phys = @(Get-CimInstance -Namespace root/Microsoft/Windows/Storage -ClassName MSFT_PhysicalDisk |
+    Select-Object FriendlyName,SerialNumber,FirmwareVersion,Size,BusType,MediaType,HealthStatus,OperationalStatus)
+# Get-PhysicalDisk/Get-StorageReliabilityCounter import the Storage module (~1.5 s)
+# and return no counters on most consumer drives; LibreHardwareMonitor covers SMART.
+$rel = @()
 [pscustomobject]@{ disks=$disks; parts=$parts; logical=$logical;
     maps=$maps; phys=$phys; rel=$rel } | ConvertTo-Json -Depth 5 -Compress
 """
@@ -31,6 +28,25 @@ DRIVE_TYPES = {
     0: "Неизвестно", 1: "Нет корня", 2: "Съёмный", 3: "Локальный",
     4: "Сетевой", 5: "CD/DVD", 6: "RAM-диск",
 }
+
+# MSFT_PhysicalDisk enum values (root/Microsoft/Windows/Storage).
+MEDIA_TYPES = {0: "не указан", 3: "HDD", 4: "SSD", 5: "SCM"}
+BUS_TYPES = {
+    0: "Unknown", 1: "SCSI", 2: "ATAPI", 3: "ATA", 4: "IEEE 1394",
+    5: "SSA", 6: "Fibre Channel", 7: "USB", 8: "RAID", 9: "iSCSI",
+    10: "SAS", 11: "SATA", 12: "SD", 13: "MMC", 14: "Virtual",
+    15: "File-backed Virtual", 16: "Storage Spaces", 17: "NVMe", 18: "SCM",
+}
+HEALTH_STATUS = {0: "исправен", 1: "предупреждение", 2: "неисправен", 5: "неизвестно"}
+
+
+def _enum_text(value: object, table: dict[int, str], default: str = "—") -> str:
+    if value is None or value == "":
+        return default
+    text = str(value).strip()
+    if text.isdigit():
+        return table.get(int(text), text)
+    return text
 
 
 def _as_int(value: object) -> int:
@@ -111,6 +127,7 @@ def _letter_for(part_id: str, maps: list[dict]) -> str:
 
 def collect_storage() -> tuple[Section, list[DiskLayout]]:
     data = ps_json(SCRIPT) or {}
+    hub = sensor_hub.data()
     disks = data.get("disks") or []
     parts = data.get("parts") or []
     logical = data.get("logical") or []
@@ -119,8 +136,14 @@ def collect_storage() -> tuple[Section, list[DiskLayout]]:
     rel = data.get("rel") or []
 
     total_size = sum(_as_int(d.get("Size")) for d in disks)
-    ssd = sum(1 for d in _unique_phys(phys) if str(d.get("MediaType")).lower() == "ssd")
-    hdd = sum(1 for d in _unique_phys(phys) if str(d.get("MediaType")).lower() == "hdd")
+    ssd = sum(
+        1 for d in _unique_phys(phys)
+        if _enum_text(d.get("MediaType"), MEDIA_TYPES, "").lower() == "ssd"
+    )
+    hdd = sum(
+        1 for d in _unique_phys(phys)
+        if _enum_text(d.get("MediaType"), MEDIA_TYPES, "").lower() == "hdd"
+    )
     summary = [
         Item("Физические диски", f"{len(disks)} шт., {format_bytes(total_size)}"),
         Item("Типы", f"SSD: {ssd}, HDD: {hdd}"),
@@ -133,20 +156,34 @@ def collect_storage() -> tuple[Section, list[DiskLayout]]:
         title = f"Диск {index if index is not None else '?'}: {first(disk.get('Model'))}"
         extra = _extra_for(disk, phys)
         health = _extra_for(disk, rel)
+        smart = hub.storage(disk.get("Model") or "") if hub else None
+        smart_temp = smart.find_reading("Temperature") if smart else None
+        remaining = smart.find_reading("Remaining Life") if smart else None
+        smart_hours = smart.find_reading("Power On Hours") if smart else None
         temperature = health.get("temp")
+        if smart_temp is not None and smart_temp.value > 0:
+            temperature = smart_temp.value
+        hours = _as_int(health.get("hours"))
+        if not hours and smart_hours is not None and smart_hours.value > 0:
+            hours = int(smart_hours.value)
         disk_items.extend([
             Item(f"{title} — модель", first(disk.get("Model"))),
             Item(f"{title} — объём", format_bytes(disk.get("Size"))),
-            Item(f"{title} — тип", first(extra.get("MediaType"), default=first(disk.get("MediaType")))),
-            Item(f"{title} — шина / интерфейс", first(extra.get("BusType")) or first(disk.get("InterfaceType"))),
+            Item(f"{title} — тип",
+                 _enum_text(extra.get("MediaType"), MEDIA_TYPES, "") or first(disk.get("MediaType"))),
+            Item(f"{title} — шина / интерфейс",
+                 _enum_text(extra.get("BusType"), BUS_TYPES, "") or first(disk.get("InterfaceType"))),
             Item(f"{title} — интерфейс (WMI)", first(disk.get("InterfaceType"))),
             Item(f"{title} — прошивка", first(disk.get("FirmwareRevision")) or first(extra.get("FirmwareVersion"))),
             Item(f"{title} — серийный номер", first(disk.get("SerialNumber")), sensitive=True),
-            Item(f"{title} — состояние", first(extra.get("HealthStatus")) or first(disk.get("Status"))),
+            Item(f"{title} — состояние",
+                 _enum_text(extra.get("HealthStatus"), HEALTH_STATUS, "") or first(disk.get("Status"))),
             Item(f"{title} — температура", format_temp(temperature) if temperature not in (None, "", 0) else "—"),
-            Item(f"{title} — наработка", format_duration(_as_int(health.get("hours")) * 3600) if health.get("hours") else "—"),
+            Item(f"{title} — наработка", format_duration(hours * 3600) if hours else "—"),
             Item(f"{title} — износ", format_percent(health.get("wear")) if health.get("wear") not in (None, "") else "—"),
         ])
+        if remaining is not None:
+            disk_items.append(Item(f"{title} — остаток ресурса", format_percent(remaining.value)))
 
     logical_items: list[Item] = []
     for volume in logical:

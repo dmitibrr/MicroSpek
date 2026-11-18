@@ -27,6 +27,7 @@ python -m microspek [flags]      # from src/
 | `--redact` | replace sensitive values with `скрыто` |
 | `--no-dxdiag` | skip the slow dxdiag report |
 | `--dxdiag-timeout SEC` | dxdiag timeout, default 60 |
+| `--admin-sensors` | one UAC prompt: CPU temperatures and disk SMART (needs admin) |
 | `--version` | print version |
 
 Flags can be combined, e.g. `microspek --summary --output json --file report.json`.
@@ -42,7 +43,13 @@ Notable groups:
 - `memory` → per-module SPD/working frequency and inferred `Профиль памяти`.
 - `gpu` → video controllers (with nvidia-smi telemetry on the healthy one) and
   "Мониторы (EDID)" with model, manufacturer code and connection type.
+  With LibreHardwareMonitorLib: "Горячая точка GPU", fan RPM/percent, voltage,
+  VRAM usage (the `Датчики` lines inside each controller group).
+- `cpu` → "Датчики (LibreHardwareMonitor)" appears when the PawnIO driver is
+  installed: package/core temperatures, fan speed, package power.
+- `motherboard` → "Датчики платы (Super I/O)": fans and voltages when available.
 - `storage` → physical disks, volumes, partitions; `layouts` holds visual bars.
+  Disk `температура` / `остаток ресурса` come from LHM (admin required).
 - `devices` → audio, Bluetooth, PnP problems, SATA controller mode.
 
 ## JSON shape (excerpt)

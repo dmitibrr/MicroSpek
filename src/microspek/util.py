@@ -90,6 +90,47 @@ def format_temp(value: Any) -> str:
     return f"{temp:.0f} °C"
 
 
+def format_fan(value: Any) -> str:
+    try:
+        rpm = float(value)
+    except (TypeError, ValueError):
+        return NA
+    if rpm <= 0:
+        return NA
+    return f"{rpm:.0f} об/мин"
+
+
+def format_watts(value: Any) -> str:
+    try:
+        watts = float(value)
+    except (TypeError, ValueError):
+        return NA
+    if watts <= 0:
+        return NA
+    precision = 0 if watts >= 100 else 1
+    return f"{watts:.{precision}f} Вт".replace(".", ",")
+
+
+def format_volts(value: Any) -> str:
+    try:
+        volts = float(value)
+    except (TypeError, ValueError):
+        return NA
+    if volts <= 0:
+        return NA
+    return f"{volts:.2f} В".replace(".", ",")
+
+
+def is_admin() -> bool:
+    """True when the current process runs elevated (Windows only)."""
+    try:
+        import ctypes
+
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
 def format_percent(value: Any) -> str:
     try:
         percent = float(value)

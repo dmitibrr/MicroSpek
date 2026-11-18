@@ -3,7 +3,17 @@
 from __future__ import annotations
 
 from ..models import Group, Item, Section
-from ..util import first, format_mhz, format_percent, format_temp, format_bytes, ps_json
+from ..util import (
+    first,
+    format_bytes,
+    format_fan,
+    format_mhz,
+    format_percent,
+    format_temp,
+    format_watts,
+    ps_json,
+)
+from . import sensors as sensor_hub
 
 SCRIPT = r"""
 $ErrorActionPreference='SilentlyContinue'
@@ -56,15 +66,29 @@ def collect_cpu() -> Section:
     cores = data.get("core_load") or []
     groups: list[Group] = []
     summary: list[Item] = []
+
+    hub = sensor_hub.data()
+    sensor_cpu = hub.cpu() if hub else None
+    temperatures = [
+        (sensor_hub.ru_name(reading.name), reading.value)
+        for reading in (sensor_cpu.readings("Temperature") if sensor_cpu else [])
+    ]
+    package = next((value for name, value in temperatures if name == "Пакет CPU"), None)
+    if package is None and temperatures:
+        package = max(value for _name, value in temperatures)
+
     name = first(data.get("name"))
     summary.append(Item("Процессор", name))
     summary.append(Item("Ядра / потоки", f"{data.get('cores', '—')} / {data.get('threads', '—')}"))
     summary.append(Item("Частота", format_mhz(data.get("cur") or data.get("base"))))
     load = format_percent(data.get("load"))
-    temp = format_temp((data.get("temp") or 0) / 10.0) if data.get("temp") else "—"
+    acpi_temp = format_temp((data.get("temp") or 0) / 10.0) if data.get("temp") else "—"
+    temp = format_temp(package) if package is not None else acpi_temp
     if load != "—":
         state = f"{load}" + (f", {temp}" if temp != "—" else "")
         summary.append(Item("Загрузка сейчас", state))
+    if package is not None:
+        summary.append(Item("Температура", temp))
     main = Group(
         "Основное",
         [
@@ -81,10 +105,21 @@ def collect_cpu() -> Section:
             Item("Напряжение", _voltage(data.get("voltage"))),
             Item("Аппаратная виртуализация", first(data.get("virt"), default="—")),
             Item("Загрузка сейчас", format_percent(data.get("load"))),
-            Item("Температура (термозона)", temp),
+            Item("Температура (термозона ACPI)", acpi_temp),
         ],
     )
     groups.append(main)
+    sensor_items: list[Item] = [
+        Item(label, format_temp(value)) for label, value in temperatures
+    ]
+    if sensor_cpu:
+        for reading in sensor_cpu.readings("Fan"):
+            sensor_items.append(Item(sensor_hub.ru_name(reading.name), format_fan(reading.value)))
+        for reading in sensor_cpu.readings("Power"):
+            if reading.value > 0:
+                sensor_items.append(Item(sensor_hub.ru_name(reading.name), format_watts(reading.value)))
+    if sensor_items:
+        groups.append(Group("Датчики (LibreHardwareMonitor)", sensor_items))
     groups.append(
         Group(
             "Кэш",

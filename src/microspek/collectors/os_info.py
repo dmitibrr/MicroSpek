@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import socket
 
 from ..models import Group, Item, Section
@@ -13,8 +14,18 @@ $os = Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,Buil
 $tz = Get-CimInstance Win32_TimeZone | Select-Object -First 1 Caption,StandardName
 $fw = $env:firmware_type
 $secureboot = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State' -ErrorAction SilentlyContinue).UEFISecureBootEnabled
-$tpm = Get-CimInstance -Namespace 'root/CIMV2/Security/MicrosoftTpm' -ClassName Win32_Tpm -ErrorAction SilentlyContinue | Select-Object -First 1 SpecVersion,IsEnabled_InitialValue,IsActivated_InitialValue
-[pscustomobject]@{ os=$os; timezone=$tz.Caption; firmware=$fw; secureboot=$secureboot; tpm=$tpm } | ConvertTo-Json -Depth 4 -Compress
+# Win32_Tpm spends ~5 s looking for a TPM that is not there; tpmtool answers
+# in ~0.1 s. Keep the WMI path only as a fallback for systems without tpmtool.
+$tpm = $null; $tpmRaw = $null; $tpmCode = $null
+if (Get-Command tpmtool.exe -ErrorAction SilentlyContinue) {
+    $tpmRaw = (& tpmtool.exe getdeviceinformation 2>&1 | Out-String)
+    $tpmCode = $LASTEXITCODE
+} else {
+    $tpm = Get-CimInstance -Namespace 'root/CIMV2/Security/MicrosoftTpm' -ClassName Win32_Tpm -ErrorAction SilentlyContinue |
+        Select-Object -First 1 SpecVersion,IsEnabled_InitialValue,IsActivated_InitialValue
+}
+[pscustomobject]@{ os=$os; timezone=$tz.Caption; firmware=$fw; secureboot=$secureboot
+    tpm=$tpm; tpm_raw=$tpmRaw; tpm_code=$tpmCode } | ConvertTo-Json -Depth 4 -Compress
 """
 
 
@@ -26,6 +37,27 @@ def _uptime(data: dict) -> str:
     return "—"
 
 
+def _tpm_text(data: dict) -> str:
+    raw = data.get("tpm_raw")
+    if raw is not None:
+        code = data.get("tpm_code")
+        if code not in (0, None):
+            return "не найден / недоступен"
+        match = re.search(r"\b(1\.2|2\.0)\b", str(raw))
+        return f"есть, версия {match.group(1)}" if match else "есть"
+    tpm = data.get("tpm") or {}
+    if not tpm:
+        return "не найден / недоступен"
+    parts = [first(tpm.get("SpecVersion"))]
+    enabled = tpm.get("IsEnabled_InitialValue")
+    activated = tpm.get("IsActivated_InitialValue")
+    if enabled is not None:
+        parts.append("включён" if enabled else "выключен")
+    if activated is not None:
+        parts.append("активен" if activated else "не активирован")
+    return ", ".join(part for part in parts if part and part != "—")
+
+
 def collect_os() -> Section:
     data = ps_json(SCRIPT) or {}
     os_data = data.get("os") or {}
@@ -33,12 +65,7 @@ def collect_os() -> Section:
     firmware = first(data.get("firmware")) or "—"
     secureboot = data.get("secureboot")
     secureboot_text = "—" if secureboot is None else ("включён" if secureboot else "выключен")
-    tpm = data.get("tpm") or {}
-    tpm_text = (
-        f"{first(tpm.get('SpecVersion'))}, включён={tpm.get('IsEnabled_InitialValue')}, "
-        f"активен={tpm.get('IsActivated_InitialValue')}"
-        if tpm else "не найден / недоступен"
-    )
+    tpm_text = _tpm_text(data)
     summary = [
         Item("Операционная система", first(os_data.get("Caption"))),
         Item("Сборка", f"{first(os_data.get('Version'))} ({first(os_data.get('BuildNumber'))})"),

@@ -9,6 +9,7 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from .collectors import sensors as sensor_hub
 from .models import format_bytes
 from .render import SEGMENT_COLORS, save_snapshot
 from .snapshot import collect_snapshot
@@ -30,6 +31,7 @@ class MicroSpekApp(tk.Tk):
         self._tab_frames: list[ttk.Frame] = []
         self.redact_var = tk.BooleanVar(value=False)
         self.dxdiag_var = tk.BooleanVar(value=False)
+        self.elevate_sensors = False
         self.status_var = tk.StringVar(value="Готово к сбору")
 
         self._build_toolbar()
@@ -50,6 +52,7 @@ class MicroSpekApp(tk.Tk):
         bar = ttk.Frame(self, padding=(8, 6))
         bar.pack(fill="x")
         ttk.Button(bar, text="Обновить", command=self.refresh).pack(side="left", padx=(0, 8))
+        ttk.Button(bar, text="Датчики (админ)", command=self.elevate_and_refresh).pack(side="left", padx=(0, 8))
         ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=4)
         ttk.Button(bar, text="Слепок TXT", command=lambda: self.export("txt")).pack(side="left", padx=4)
         ttk.Button(bar, text="JSON", command=lambda: self.export("json")).pack(side="left", padx=4)
@@ -100,12 +103,24 @@ class MicroSpekApp(tk.Tk):
         self._busy = True
         self.status_var.set("Сбор данных…")
         threading.Thread(
-            target=self._worker, args=(self.dxdiag_var.get(),), daemon=True
+            target=self._worker,
+            args=(self.dxdiag_var.get(), self.elevate_sensors),
+            daemon=True,
         ).start()
 
-    def _worker(self, include_dxdiag: bool) -> None:
+    def elevate_and_refresh(self) -> None:
+        """Collect sensors again, this time through a UAC prompt."""
+        sensor_hub.reset()
+        self.elevate_sensors = True
+        self.refresh()
+
+    def _worker(self, include_dxdiag: bool, elevate_sensors: bool) -> None:
         try:
-            self._queue.put(("ok", collect_snapshot(include_dxdiag=include_dxdiag)))
+            snapshot = collect_snapshot(
+                include_dxdiag=include_dxdiag,
+                elevate_sensors=elevate_sensors,
+            )
+            self._queue.put(("ok", snapshot))
         except Exception as exc:  # pragma: no cover - defensive
             self._queue.put(("error", exc))
 
@@ -122,7 +137,10 @@ class MicroSpekApp(tk.Tk):
                 self._rebuild_tabs()
                 stamp = payload.generated_at.strftime("%H:%M:%S")
                 extra = f", предупреждений: {len(payload.warnings)}" if payload.warnings else ""
-                self.status_var.set(f"Обновлено {stamp} · разделов: {len(payload.sections)}{extra}")
+                self.status_var.set(
+                    f"Обновлено {stamp} · разделов: {len(payload.sections)}{extra} · "
+                    f"{sensor_hub.status_note()}"
+                )
             else:
                 self.status_var.set(f"Ошибка сбора: {payload}")
         self.after(150, self._poll)

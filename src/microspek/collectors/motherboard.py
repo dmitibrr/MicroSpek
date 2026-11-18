@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from ..models import Group, Item, Section
-from ..util import first, format_date, ps_json
+from ..util import first, format_date, format_fan, format_temp, format_volts, ps_json
+from . import sensors as sensor_hub
 
 SCRIPT = r"""
 $ErrorActionPreference='SilentlyContinue'
@@ -95,4 +96,17 @@ def collect_motherboard() -> Section:
                 )
             )
         groups.append(Group("Питание", items))
+
+    hub = sensor_hub.data()
+    board = hub.motherboard() if hub else None
+    if board:
+        sensor_items: list[Item] = []
+        for reading in board.readings("Temperature"):
+            sensor_items.append(Item(sensor_hub.ru_name(reading.name), format_temp(reading.value)))
+        for reading in board.readings("Fan"):
+            sensor_items.append(Item(sensor_hub.ru_name(reading.name), format_fan(reading.value)))
+        for reading in board.readings("Voltage"):
+            sensor_items.append(Item(sensor_hub.ru_name(reading.name), format_volts(reading.value)))
+        if sensor_items:
+            groups.append(Group("Датчики платы (Super I/O)", sensor_items))
     return Section("motherboard", "Материнская плата", groups, summary)

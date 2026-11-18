@@ -3,7 +3,19 @@
 from __future__ import annotations
 
 from ..models import Group, Item, Section
-from ..util import command_output, first, format_bytes, format_date, format_percent, format_temp, ps_json
+from ..util import (
+    command_output,
+    first,
+    format_bytes,
+    format_date,
+    format_fan,
+    format_percent,
+    format_temp,
+    format_volts,
+    format_watts,
+    ps_json,
+)
+from . import sensors as sensor_hub
 
 SCRIPT = r"""
 $ErrorActionPreference='SilentlyContinue'
@@ -81,6 +93,15 @@ def _instance_key(values: object) -> str:
     return "\\".join(instance.split("\\")[:2]).upper()
 
 
+def _sensor_value(device, kind: str, name: str) -> float | None:
+    if device is None:
+        return None
+    for reading in device.readings(kind):
+        if reading.name == name:
+            return reading.value
+    return None
+
+
 def collect_gpu() -> Section:
     data = ps_json(SCRIPT) or {}
     controllers = data.get("gpus") or []
@@ -91,6 +112,7 @@ def collect_gpu() -> Section:
     if isinstance(connections, dict):
         connections = [connections]
 
+    hub = sensor_hub.data()
     telemetry = _nvidia_telemetry()
     tele_used = False
     summary: list[Item] = []
@@ -131,6 +153,47 @@ def collect_gpu() -> Section:
                 Item("Потребление", f"{tele.get('power.draw')} Вт" if tele.get("power.draw") else "—"),
                 Item("Вентилятор", format_percent(tele.get("fan.speed"))),
             ])
+        sensor_gpu = None
+        if hub and str(gpu.get("Status") or "").lower() != "error":
+            sensor_gpu = hub.gpu(name)
+        if sensor_gpu:
+            extra: list[Item] = []
+            if not tele:
+                core = _sensor_value(sensor_gpu, "Temperature", "GPU Core")
+                if core is not None:
+                    extra.append(Item("Температура GPU", format_temp(core)))
+            hotspot = _sensor_value(sensor_gpu, "Temperature", "GPU Hot Spot")
+            if hotspot is not None:
+                extra.append(Item("Горячая точка GPU", format_temp(hotspot)))
+            memory_junction = _sensor_value(sensor_gpu, "Temperature", "GPU Memory Junction")
+            if memory_junction is not None:
+                extra.append(Item("Температура памяти GPU", format_temp(memory_junction)))
+            fan_rpm = _sensor_value(sensor_gpu, "Fan", "GPU Fan")
+            if fan_rpm:
+                control = _sensor_value(sensor_gpu, "Control", "GPU Fan")
+                fan_text = format_fan(fan_rpm)
+                if control is not None:
+                    fan_text += f" ({control:.0f}%)"
+                extra.append(Item("Вентилятор GPU (об/мин)", fan_text))
+            voltage = _sensor_value(sensor_gpu, "Voltage", "GPU Core Voltage")
+            if voltage:
+                extra.append(Item("Напряжение ядра GPU", format_volts(voltage)))
+            if not tele:
+                power = (
+                    _sensor_value(sensor_gpu, "Power", "GPU Package")
+                    or _sensor_value(sensor_gpu, "Power", "GPU Board Power")
+                    or _sensor_value(sensor_gpu, "Power", "GPU Power")
+                )
+                if power:
+                    extra.append(Item("Потребление", format_watts(power)))
+                used = _sensor_value(sensor_gpu, "SmallData", "GPU Memory Used")
+                total_memory = _sensor_value(sensor_gpu, "SmallData", "GPU Memory Total")
+                if used is not None and total_memory:
+                    extra.append(Item("Память занято", f"{used:.0f} / {total_memory:.0f} МБ"))
+                clock = _sensor_value(sensor_gpu, "Clock", "GPU Core")
+                if clock:
+                    extra.append(Item("Частота GPU", f"{clock:.0f} МГц"))
+            items.extend(extra)
         groups.append(Group(f"Контроллер {index}", items))
 
     monitor_items: list[Item] = []

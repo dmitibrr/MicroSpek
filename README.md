@@ -14,7 +14,17 @@ python scripts/build_exe.py
 
 Получится `dist/MicroSpek-<version>-WIN64.zip` с двумя программами:
 `MicroSpek-GUI.exe` (оконный интерфейс) и `microspek.exe` (консольная команда),
-а также `Слепок.cmd` и инструкция. Python друзьям не нужен.
+папкой `sensors` (сборщик температур/SMART), `SNAPSHOT.cmd` и инструкцией.
+Python друзьям не нужен.
+
+Сборщик датчиков компилируется из `tools/sensors/MicroSpekSensors.cs`
+компилятором .NET Framework, который уже есть в Windows. Если его нужно
+пересобрать отдельно:
+
+```powershell
+python scripts/fetch_sensors_vendor.py   # один раз, тянет LibreHardwareMonitorLib + зависимости
+python scripts/build_sensors.py
+```
 
 ## Запуск из исходников
 
@@ -41,6 +51,8 @@ python -m microspek --summary
 ## GUI
 
 - **Обновить** (`Ctrl+R`) — повторный сбор данных в фоновом потоке.
+- **Датчики (админ)** — пересобрать с правами администратора: температуры CPU,
+  обороты вентиляторов и SMART-данные дисков (один запрос UAC).
 - **Слепок TXT** — подробный отчёт, готовый для вставки в ИИ.
 - **JSON / PNG-отчёт** — экспорт в соответствующие форматы.
 - **Скриншот окна** — снимок текущего окна приложения через Pillow.
@@ -62,6 +74,27 @@ python -m microspek --summary
 звуковые и Bluetooth-устройства, проблемные PnP-устройства,
 режим SATA-контроллера, опционально DirectX через dxdiag.
 
+Отдельно собираются аппаратные датчики через LibreHardwareMonitorLib:
+температура GPU, hot spot, обороты и мощность, температуры и SMART-ресурс
+дисков, температуры CPU и датчики Super I/O (когда доступны).
+
+Коллекторы работают параллельно: на машине разработки полный слепок занимает
+около 4–5 секунд вместо 14 (запуск PowerShell на каждую секцию больше не
+складывается последовательно).
+
+## Датчики и права администратора
+
+`MicroSpekSensors.exe` запускается без прав и сразу отдаёт то, что доступно
+обычному пользователю (датчики GPU через NVAPI, часть данных LHM).
+SMART-данные дисков и температуры CPU требуют администратора: `--admin-sensors`
+(и `SNAPSHOT.cmd`) запрашивает UAC один раз, при отказе программа продолжает
+без этих полей. В GUI для этого есть кнопка «Датчики (админ)».
+
+Температуры CPU и обороты вентиляторов на многих платах требуют драйвера
+**PawnIO** (LHM 0.9.6 использует его вместо WinRing0). Без PawnIO SMART дисков,
+GPU-датчики и остальная информация всё равно собираются; поля CPU/вентиляторов
+остаются «—».
+
 ## Структура
 
 ```
@@ -73,7 +106,9 @@ src/microspek/
   models.py          модели данных и редокт
   util.py            PowerShell, форматирование, даты
   collectors/        cpu, memory, motherboard, storage, gpu, network,
-                     os_info, devices, dxdiag
+                     os_info, devices, dxdiag, sensors
+tools/sensors/       MicroSpekSensors.cs — C#-helper для LibreHardwareMonitorLib
+scripts/             сборка exe, датчиков, релиза
 run_microspek.py     запуск из корня проекта
 ```
 
@@ -83,13 +118,24 @@ Python 3.10+, Windows. Зависимости из стандартной биб
 и скриншотов используется Pillow (`pip install pillow`). Сбор данных идёт
 через PowerShell (CIM/WMI), поэтому утилита рассчитана на Windows.
 
+Для сборки exe нужен PyInstaller; для сборки `MicroSpekSensors.exe` —
+компилятор C# из состава .NET Framework 4.8 (есть в Windows 10/11 по умолчанию)
+и пакеты NuGet, которые скачивает `scripts/fetch_sensors_vendor.py`.
+
+## Лицензии сторонних компонентов
+
+`MicroSpekSensors.exe` использует LibreHardwareMonitorLib 0.9.6 и её зависимости
+(DiskInfoToolkit, RAMSPDToolkit-NDD, BlackSharp.Core — MPL-2.0; HidSharp —
+Apache-2.0; пакеты `System.*` — MIT). Уведомления и полные тексты лицензий
+лежат в папке `sensors/` рядом с программой: `THIRD_PARTY.md`,
+`LICENSE-MPL-2.0.txt`, `LICENSE-HidSharp.txt`.
+
 ## Известные нюансы
 
-- `Get-StorageReliabilityCounter` (температура/износ/наработка дисков) на этой
-  машине не отдаёт данные вообще — поля остаются «—». Это ограничение системы,
-  а не код. Для реальных температур CPU/чипсета/вентиляторов потребуется
-  внешняя библиотека (например, LibreHardwareMonitorLib), она не интегрирована.
-  Зато доступны температуры и обороты GPU через nvidia-smi.
+- `Get-StorageReliabilityCounter` на многих потребительских дисках не отдаёт
+  данные; вместо него SMART-температуры и остаток ресурса читает
+  LibreHardwareMonitorLib (нужны права администратора). Температуры CPU и
+  обороты вентиляторов дополнительно требуют драйвера PawnIO.
 - `AdapterRAM` в WMI часто ограничен 4 ГБ; для точного объёма видеопамяти
   используется nvidia-smi, если он установлен.
 - Занятое место показывается только для томов, целиком лежащих на одном

@@ -7,23 +7,15 @@ from ..util import first, ps_json
 
 SCRIPT = r"""
 $ErrorActionPreference='SilentlyContinue'
-$audio = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue |
-    Select-Object FriendlyName,Status)
-$media = @(Get-PnpDevice -Class MEDIA -ErrorAction SilentlyContinue |
-    Where-Object {$_.Status -eq 'OK'} | Select-Object FriendlyName,Status)
-$bt = @(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue |
-    Where-Object {$_.InstanceId -like 'BTHENUM\DEV_*' -or $_.FriendlyName -like '*Bluetooth Adapter*' -or $_.FriendlyName -like '*Bluetooth USB*'} |
-    Select-Object FriendlyName,Status,InstanceId)
-$btDriver = @(Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue |
-    Where-Object {$_.DeviceClass -eq 'Bluetooth'} |
+# Get-PnpDevice imports a slow module (~3.5 s on every cold process). Win32_PnPEntity
+# returns the same device classes from a single fast WMI query.
+$pnp = @(Get-CimInstance Win32_PnPEntity |
+    Select-Object Name,Manufacturer,DeviceID,PNPClass,Status,ConfigManagerErrorCode,Service)
+$btDriver = @(Get-CimInstance Win32_PnPSignedDriver -Filter "DeviceClass='Bluetooth'" |
     Select-Object DeviceName,DriverVersion,Manufacturer,Description)
-$problems = @(Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue |
-    Where-Object {$_.ConfigManagerErrorCode -ne 0} |
-    Select-Object Name,ConfigManagerErrorCode,Status)
 $storage = @(Get-Service -Name 'storahci','iaStorA','iaStorAC','amdhsasas','nvme' -ErrorAction SilentlyContinue |
     Where-Object {$_.Status -eq 'Running'} | Select-Object Name,DisplayName)
-[pscustomobject]@{ audio=$audio; media=$media; bluetooth=$bt;
-    bt_driver=$btDriver; problems=$problems; storage=$storage } |
+[pscustomobject]@{ pnp=$pnp; bt_driver=$btDriver; storage=$storage } |
     ConvertTo-Json -Depth 5 -Compress
 """
 
@@ -42,11 +34,32 @@ def _unique_names(rows: list[dict]) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
     for row in rows:
-        name = str(row.get("FriendlyName") or row.get("DeviceName") or "").strip()
+        name = str(row.get("Name") or row.get("FriendlyName") or row.get("DeviceName") or "").strip()
         if name and name.lower() not in seen:
             seen.add(name.lower())
             result.append(name)
     return result
+
+
+def _class_rows(entities: list[dict], pnp_class: str) -> list[dict]:
+    wanted = pnp_class.lower()
+    return [row for row in entities if str(row.get("PNPClass") or "").lower() == wanted]
+
+
+def _error_code(row: dict) -> int:
+    try:
+        return int(row.get("ConfigManagerErrorCode") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _is_adapter(row: dict) -> bool:
+    """Bluetooth radio vs. a paired headset/phone."""
+    device_id = str(row.get("DeviceID") or "").upper()
+    if "DEV_" in device_id:  # BTHENUM\DEV_... is a paired peripheral
+        return False
+    name = str(row.get("Name") or "").lower()
+    return "adapter" in name or "bluetooth" in name
 
 
 def _storage_mode(rows: list[dict]) -> str:
@@ -64,12 +77,17 @@ def _storage_mode(rows: list[dict]) -> str:
 
 def collect_devices() -> Section:
     data = ps_json(SCRIPT) or {}
-    audio = data.get("audio") or []
-    media = data.get("media") or []
-    bluetooth = data.get("bluetooth") or []
+    entities = data.get("pnp") or []
     bt_driver = data.get("bt_driver") or []
-    problems = data.get("problems") or []
     storage = data.get("storage") or []
+
+    audio = _class_rows(entities, "AudioEndpoint")
+    media = [
+        row for row in _class_rows(entities, "MEDIA")
+        if str(row.get("Status")).lower() == "ok"
+    ]
+    bluetooth = _class_rows(entities, "Bluetooth")
+    problems = [row for row in entities if _error_code(row) != 0]
 
     audio_names = _unique_names([row for row in audio if str(row.get("Status")).lower() == "ok"])
     mode = _storage_mode(storage)
@@ -80,14 +98,14 @@ def collect_devices() -> Section:
     ]
     if not driver_rows:
         driver_rows = [
-            {"DeviceName": device.get("FriendlyName")}
+            {"DeviceName": device.get("Name")}
             for device in bluetooth
-            if "adapter" in str(device.get("FriendlyName") or "").lower()
+            if _is_adapter(device)
         ]
     summary = [
         Item("Звуковые устройства", ", ".join(audio_names[:3]) or "—"),
         Item("Bluetooth-адаптер", first(driver_rows[0].get("DeviceName")) if driver_rows
-             else (first(bluetooth[0].get("FriendlyName")) if bluetooth else "—")),
+             else (first(bluetooth[0].get("Name")) if bluetooth else "—")),
         Item("Проблемные устройства", str(len(problems))),
         Item("Режим SATA", mode),
     ]
@@ -106,7 +124,7 @@ def collect_devices() -> Section:
             Item(f"Адаптер {index} — драйвер", first(adapter.get("DriverVersion"))),
         ])
     for index, device in enumerate(bluetooth, start=1):
-        bt_items.append(Item(f"Устройство {index}", f"{first(device.get('FriendlyName'))} ({first(device.get('Status'))})"))
+        bt_items.append(Item(f"Устройство {index}", f"{first(device.get('Name'))} ({first(device.get('Status'))})"))
     groups.append(Group("Bluetooth", bt_items or [Item("Результат", "адаптер не найден")]))
 
     problem_items = []
