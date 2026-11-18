@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build / release
+build/
+dist/
+*.spec
+MicroSpek-portable/
+*.zip
+
+# Snapshots and reports
+microspek_*.txt
+microspek_*.json
+microspek_*.png
+snapshot*.txt
+snapshot*.json
+report*.png
+
+# Installer artifacts
+install_info.json
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+
+# Local handoff notes (kept outside the repo)

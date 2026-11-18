@@ -1,0 +1,154 @@
+"""GPU collector: WMI video controllers, monitors (EDID) and nvidia-smi."""
+
+from __future__ import annotations
+
+from ..models import Group, Item, Section
+from ..util import command_output, first, format_bytes, format_date, format_percent, format_temp, ps_json
+
+SCRIPT = r"""
+$ErrorActionPreference='SilentlyContinue'
+$gpus = @(Get-CimInstance Win32_VideoController | Select-Object Name,VideoProcessor,AdapterCompatibility,DriverVersion,DriverDate,AdapterRAM,CurrentHorizontalResolution,CurrentVerticalResolution,CurrentRefreshRate,Status,VideoModeDescription)
+$monitors = @(Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorID | ForEach-Object {
+    [pscustomobject]@{
+        instance=@($_.InstanceName); manufacturer=@($_.ManufacturerName);
+        model=@($_.UserFriendlyName); product=@($_.ProductCodeID);
+        serial=@($_.SerialNumberID); week=$_.WeekOfManufacture; year=$_.YearOfManufacture
+    } })
+$connections = @(Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorConnectionParams | ForEach-Object {
+    [pscustomobject]@{ instance=@($_.InstanceName); tech=$_.VideoOutputTechnology } })
+[pscustomobject]@{ gpus=$gpus; monitors=$monitors; connections=$connections } |
+    ConvertTo-Json -Depth 5 -Compress
+"""
+
+NVIDIA_FIELDS = (
+    "name", "temperature.gpu", "utilization.gpu", "memory.used",
+    "memory.total", "clocks.sm", "power.draw", "fan.speed", "driver_version",
+)
+
+VIDEO_OUTPUT = {
+    0: "Другое", 1: "VGA", 2: "DVI", 3: "Composite", 4: "HDMI",
+    5: "DisplayPort", 6: "LVDS / eDP", 7: "S-video", 8: "Компонентный",
+    10: "Miracast",
+}
+
+
+def _nvidia_telemetry() -> list[dict[str, str]]:
+    output = command_output(
+        "nvidia-smi",
+        ["--query-gpu=" + ",".join(NVIDIA_FIELDS), "--format=csv,noheader,nounits"],
+        timeout=10.0,
+    )
+    if not output:
+        return []
+    rows: list[dict[str, str]] = []
+    for line in output.splitlines():
+        cells = [cell.strip() for cell in line.split(",")]
+        if len(cells) >= len(NVIDIA_FIELDS):
+            rows.append(dict(zip(NVIDIA_FIELDS, cells)))
+    return rows
+
+
+def _match_telemetry(name: str, rows: list[dict[str, str]]) -> dict[str, str]:
+    target = name.lower()
+    for row in rows:
+        candidate = row.get("name", "").lower()
+        if target in candidate or candidate in target:
+            return row
+    return {}
+
+
+def _edid_text(values: object) -> str:
+    if not isinstance(values, list):
+        return "—"
+    try:
+        raw = bytes(int(v) & 0xFF for v in values if isinstance(v, (int, float)))
+    except (TypeError, ValueError):
+        return "—"
+    text = raw.decode("ascii", errors="ignore").strip("\x00 \t\r\n")
+    return text or "—"
+
+
+def _instance_key(values: object) -> str:
+    instance = _edid_text(values)
+    if instance == "—":
+        return ""
+    return "\\".join(instance.split("\\")[:2]).upper()
+
+
+def collect_gpu() -> Section:
+    data = ps_json(SCRIPT) or {}
+    controllers = data.get("gpus") or []
+    if isinstance(controllers, dict):
+        controllers = [controllers]
+    monitors = data.get("monitors") or []
+    connections = data.get("connections") or []
+    if isinstance(connections, dict):
+        connections = [connections]
+
+    telemetry = _nvidia_telemetry()
+    tele_used = False
+    summary: list[Item] = []
+    groups: list[Group] = []
+
+    for index, gpu in enumerate(controllers, start=1):
+        name = first(gpu.get("Name"))
+        if index == 1:
+            summary.append(Item("Видеокарта", name))
+            summary.append(Item("Драйвер", first(gpu.get("DriverVersion"))))
+        tele: dict[str, str] = {}
+        if not tele_used and str(gpu.get("Status") or "").lower() != "error":
+            tele = _match_telemetry(name, telemetry)
+            if tele:
+                tele_used = True
+        resolution = "—"
+        width = gpu.get("CurrentHorizontalResolution")
+        height = gpu.get("CurrentVerticalResolution")
+        if width and height:
+            resolution = f"{width}x{height} @ {first(gpu.get('CurrentRefreshRate'))} Гц"
+        items = [
+            Item("Модель", name),
+            Item("Производитель", first(gpu.get("AdapterCompatibility"))),
+            Item("Видеопроцессор", first(gpu.get("VideoProcessor"))),
+            Item("Версия драйвера", tele.get("driver_version") or first(gpu.get("DriverVersion"))),
+            Item("Дата драйвера", format_date(gpu.get("DriverDate"))),
+            Item("Видеопамять (WMI)", format_bytes(gpu.get("AdapterRAM"))),
+            Item("Текущее разрешение", resolution),
+            Item("Состояние", first(gpu.get("Status"))),
+        ]
+        if tele:
+            items.extend([
+                Item("Температура GPU", format_temp(tele.get("temperature.gpu"))),
+                Item("Загрузка GPU", format_percent(tele.get("utilization.gpu"))),
+                Item("Память занято", f"{tele.get('memory.used')} / {tele.get('memory.total')} МБ"
+                     if tele.get("memory.used") and tele.get("memory.total") else "—"),
+                Item("Частота SM", f"{tele.get('clocks.sm')} МГц" if tele.get("clocks.sm") else "—"),
+                Item("Потребление", f"{tele.get('power.draw')} Вт" if tele.get("power.draw") else "—"),
+                Item("Вентилятор", format_percent(tele.get("fan.speed"))),
+            ])
+        groups.append(Group(f"Контроллер {index}", items))
+
+    monitor_items: list[Item] = []
+    for index, monitor in enumerate(monitors, start=1):
+        key = _instance_key(monitor.get("instance"))
+        tech = next(
+            (c.get("tech") for c in connections if _instance_key(c.get("instance")) == key),
+            None,
+        )
+        output_type = VIDEO_OUTPUT.get(int(tech), f"код {tech}") if tech is not None else "—"
+        model = _edid_text(monitor.get("model"))
+        monitor_items.extend([
+            Item(f"Монитор {index} — модель", model),
+            Item(f"Монитор {index} — производитель (EDID)", _edid_text(monitor.get("manufacturer"))),
+            Item(f"Монитор {index} — ID изделия", _edid_text(monitor.get("product"))),
+            Item(f"Монитор {index} — подключение", output_type),
+            Item(f"Монитор {index} — выпущен",
+                 f"{monitor.get('year')} г., неделя {monitor.get('week')}"
+                 if monitor.get("year") else "—"),
+            Item(f"Монитор {index} — серийный номер",
+                 _edid_text(monitor.get("serial")), sensitive=True),
+        ])
+    if monitor_items:
+        groups.append(Group("Мониторы (EDID)", monitor_items))
+        summary.append(Item("Монитор", _edid_text(monitors[0].get("model")) if monitors else "—"))
+
+    return Section("gpu", "Видеокарта", groups, summary)

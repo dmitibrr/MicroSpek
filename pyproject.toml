@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "microspek"
+version = "0.1.0"
+description = "Windows hardware snapshot utility: GUI, CLI, TXT/JSON/PNG reports"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "MicroSpek contributors" }]
+dependencies = ["Pillow>=10.0.0"]
+
+[project.optional-dependencies]
+dev = ["build>=1.0", "twine>=5.0"]
+
+[project.scripts]
+microspek = "microspek.__main__:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+microspek = ["py.typed"]
