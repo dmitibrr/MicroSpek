@@ -21,7 +21,8 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parent.parent
-VENDOR = ROOT / "vendor" / "lhm" / "win-x64"SOURCE_DIR = ROOT / "tools" / "sensors"
+VENDOR = ROOT / "vendor" / "lhm" / "win-x64"
+SOURCE_DIR = ROOT / "tools" / "sensors"
 SOURCE = SOURCE_DIR / "MicroSpekSensors.cs"
 OUT_DIR = ROOT / "build" / "sensors"
 EXE = OUT_DIR / "MicroSpekSensors.exe"
