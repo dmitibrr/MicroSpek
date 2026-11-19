@@ -65,6 +65,29 @@ _event = threading.Event()
 _payload: dict[str, Any] | None = None
 _error: str | None = None
 _elevated = False
+_enabled = True
+
+
+def set_enabled(value: bool) -> None:
+    """Enable or disable the sensor helper for lightweight editions.
+
+    Disabling must happen before the collectors call :func:`data`; they then
+    get ``None`` instead of waiting for a helper that will never run.
+    """
+    global _enabled
+    if value:
+        if not _enabled:
+            _enabled = True
+            reset()
+    else:
+        _enabled = False
+        reset()
+        _event.set()
+
+
+def enabled() -> bool:
+    return _enabled
+
 
 
 def helper_path() -> Path | None:
@@ -365,6 +388,9 @@ def _worker(elevate: bool) -> None:
 def begin(elevate: bool = False) -> None:
     """Start sensor collection in the background (idempotent)."""
     global _started
+    if not _enabled:
+        _event.set()
+        return
     with _lock:
         if _started:
             return
@@ -390,6 +416,8 @@ def reset() -> None:
 
 def data(timeout: float = HELPER_TIMEOUT + UAC_TIMEOUT + 5) -> Sensors | None:
     """Wait for the background collection and return the parsed tree."""
+    if not _enabled:
+        return None
     begin()
     _event.wait(timeout)
     if _payload is None:
@@ -403,6 +431,8 @@ def error() -> str | None:
 
 def status_note() -> str:
     """Short human-readable status for the GUI/CLI."""
+    if not _enabled:
+        return "Датчики отключены"
     if helper_path() is None:
         return "Датчики недоступны: не найден MicroSpekSensors.exe"
     if not _event.is_set():

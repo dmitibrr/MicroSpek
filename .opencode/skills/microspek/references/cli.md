@@ -12,32 +12,73 @@ From source checkout:
 
 ```sh
 python run_microspek.py [flags]
-python -m microspek [flags]      # from src/
+python -m microspek [flags]      # with src/ on PYTHONPATH
+```
+
+Standalone editions use their own binary names:
+
+```sh
+microspek.exe [flags]            # full and cli editions
+microspek-snapshot.exe [flags]   # snapshot edition
 ```
 
 ## Flags
 
 | Flag | Effect |
 | --- | --- |
-| `--gui` | open Tkinter GUI (default when no other action is given) |
-| `--summary` | print short per-section summary to stdout |
-| `--snapshot` | print full TXT snapshot to stdout |
-| `--output {txt,json,png}` | save report to file |
-| `--file PATH` | output path (default: `microspek_<timestamp>.<ext>`) |
-| `--redact` | replace sensitive values with `скрыто` |
+| `--gui` | open the Tkinter GUI (default when no other action is given) |
+| `--summary` | print a short per-section summary to stdout |
+| `--snapshot` | print the full TXT snapshot to stdout |
+| `--output {txt,json,md}` | save the report to a file |
+| `--file PATH` | output path (default: `microspek_snapshot_<timestamp>.<ext>`) |
+| `--redact` | replace sensitive values with `скрыто` / `hidden` |
+| `--lang {ru,en}` | interface and report language |
+| `--sections LIST` | collect only the listed sections (comma-separated keys) |
+| `--no-sensors` | do not run the sensor helper (faster, no temperatures/SMART) |
 | `--no-dxdiag` | skip the slow dxdiag report |
 | `--dxdiag-timeout SEC` | dxdiag timeout, default 60 |
-| `--admin-sensors` | one UAC prompt: CPU temperatures and disk SMART (needs admin) |
-| `--version` | print version |
+| `--admin-sensors` | one UAC prompt: CPU temperatures and disk SMART |
+| `--config PATH` | read defaults from `microspek.json` |
+| `--version` | print the version |
 
-Flags can be combined, e.g. `microspek --summary --output json --file report.json`.
+Flags can be combined, e.g.
+`microspek --output md --lang en --redact --file report.md`.
+
+## Configuration file
+
+`microspek.json` is optional for the CLI and the main configuration for the
+snapshot edition. It is looked up in the current directory and, for a frozen
+executable, next to the `.exe`. Unknown keys are ignored; command-line flags
+win over the file.
+
+```json
+{
+  "output": "md",
+  "file": "reports/pc.md",
+  "redact": true,
+  "sections": ["os", "cpu", "memory", "storage", "gpu"],
+  "sensors": true,
+  "dxdiag": false,
+  "admin_sensors": false,
+  "lang": "en",
+  "open": false,
+  "quiet": false,
+  "stdout": false
+}
+```
+
+- `output` — `txt`, `json` or `md` (`markdown` is accepted).
+- `file` — relative paths are resolved next to the config file.
+- `sections` — list or comma string; `all`, `*` or an empty value means every
+  section.
+- `open` — open the finished report in the default application.
 
 ## Sections
 
 `os`, `motherboard`, `cpu`, `memory`, `storage`, `gpu`, `network`, `devices`,
 `dxdiag` (only when dxdiag is enabled).
 
-Notable groups:
+Notable groups (Russian titles are translated in EN output):
 
 - `os` → "Загрузка и безопасность": firmware (UEFI/Legacy), Secure Boot, TPM.
 - `memory` → per-module SPD/working frequency and inferred `Профиль памяти`.
@@ -56,6 +97,8 @@ Notable groups:
 
 ```json
 {
+  "schema": "microspek.snapshot/1",
+  "language": "en",
   "generated_at": "2026-11-18T16:00:00",
   "hostname": "PC-NAME",
   "platform": "Windows-11-10.0.26300-SP0",
@@ -63,18 +106,18 @@ Notable groups:
   "sections": [
     {
       "key": "cpu",
-      "title": "Процессор",
-      "summary": [{"label": "Процессор", "value": "...", "note": "", "sensitive": false}],
+      "title": "Processor",
+      "summary": [{"label": "Processor", "value": "...", "note": "", "sensitive": false}],
       "groups": [
-        {"title": "Основное", "items": [
-          {"label": "Модель", "value": "...", "note": "", "sensitive": false}
+        {"title": "General", "items": [
+          {"label": "Model", "value": "...", "note": "", "sensitive": false}
         ]}
       ]
     }
   ],
   "layouts": [
     {
-      "title": "Диск 0 — SSD (476,9 ГиБ)",
+      "title": "Disk 0 — SSD (476.9 GiB)",
       "total_size": 512105932800,
       "segments": [
         {"label": "C:", "size": 510933336064, "kind": "data", "used": 287600000000}
@@ -86,6 +129,12 @@ Notable groups:
 
 `kind` values: `data`, `efi`, `recovery`, `service`, `ldm`, `free`.
 `used` is `null` when the volume spans multiple disks (LDM) or is unknown.
+
+## Markdown shape
+
+`--output md` writes one heading per section, a table per group, a table for
+each disk layout and a warnings list. Pipes and newlines inside values are
+escaped, so the file renders correctly in GitHub, Notion and Obsidian.
 
 ## Quick jq examples
 

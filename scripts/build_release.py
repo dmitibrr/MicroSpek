@@ -1,72 +1,30 @@
-"""Build a portable ZIP for a GitHub release: python scripts/build_release.py."""
+"""Build every release archive for GitHub: python scripts/build_release.py.
+
+Delegates to ``scripts/build_exe.py`` so there is a single source of truth for
+the four editions (full / gui / cli / snapshot), their ZIP layouts and SHA256
+sidecar files.
+"""
 
 from __future__ import annotations
 
-import hashlib
-import re
-import shutil
 import sys
-import tempfile
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
 
-from install import LAUNCHER  # noqa: E402
-
-
-def read_version() -> str:
-    source = (ROOT / "src" / "microspek" / "__init__.py").read_text(encoding="utf-8")
-    match = re.search(r'__version__\s*=\s*"([^"]+)"', source)
-    if not match:
-        raise RuntimeError("Не удалось определить версию")
-    return match.group(1)
+from build_exe import EDITIONS, build  # noqa: E402
 
 
-def build() -> Path:
-    version = read_version()
-    dist = ROOT / "dist"
-    dist.mkdir(exist_ok=True)
-    archive = dist / f"microspek-{version}-portable.zip"
-
-    with tempfile.TemporaryDirectory() as tmp:
-        staging = Path(tmp) / f"microspek-{version}-portable"
-        staging.mkdir(parents=True)
-
-        shutil.copytree(
-            ROOT / "src", staging / "src",
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
-        )
-        for name in ("README.md", "LICENSE", "CHANGELOG.md", "requirements.txt", "install.py", "run_microspek.py"):
-            source = ROOT / name
-            if source.exists():
-                shutil.copy2(source, staging / name)
-        for folder in ("scripts", "tools"):
-            source = ROOT / folder
-            if source.exists():
-                shutil.copytree(
-                    source,
-                    staging / folder,
-                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
-                )
-        skill_source = ROOT / ".opencode" / "skills" / "microspek"
-        if skill_source.exists():
-            shutil.copytree(skill_source, staging / ".opencode" / "skills" / "microspek")
-        (staging / "microspek.cmd").write_text(LAUNCHER, encoding="utf-8")
-
-        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-            for path in sorted(staging.rglob("*")):
-                if path.is_file():
-                    zf.write(path, path.relative_to(staging.parent))
-
-    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-    (dist / f"{archive.name}.sha256").write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
-    print(f"Готово: {archive} ({archive.stat().st_size} байт)")
-    print(f"SHA256: {digest}")
-    return archive
+def main() -> int:
+    archives = build(list(EDITIONS))
+    print("\nRelease archives:")
+    for archive in archives:
+        digest = archive.with_name(archive.name + ".sha256").read_text(encoding="utf-8")
+        print(f"  {archive.name:44} {archive.stat().st_size:>12} bytes")
+        print(f"  {digest.strip()}")
+    return 0
 
 
 if __name__ == "__main__":
-    build()
+    raise SystemExit(main())

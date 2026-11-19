@@ -11,8 +11,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from microspek import i18n
 from microspek.models import DiskLayout, Group, Item, PartitionSegment, Section, Snapshot, format_bytes
-from microspek.render import render_json, render_txt, snapshot_to_dict
+from microspek.render import render_json, render_markdown, render_txt, snapshot_to_dict
 
 
 def make_snapshot() -> Snapshot:
@@ -47,6 +48,10 @@ def make_snapshot() -> Snapshot:
 class RenderTests(unittest.TestCase):
     def setUp(self) -> None:
         self.snapshot = make_snapshot()
+        i18n.set_language("ru")
+
+    def tearDown(self) -> None:
+        i18n.set_language("ru")
 
     def test_format_bytes(self) -> None:
         self.assertEqual(format_bytes(1024), "1,00 КиБ")
@@ -76,6 +81,29 @@ class RenderTests(unittest.TestCase):
     def test_redacted_json_has_no_serial(self) -> None:
         self.assertNotIn("SERIAL-123", render_json(self.snapshot, redacted=True))
         self.assertNotIn("SERIAL-123", json.dumps(snapshot_to_dict(self.snapshot, True)))
+
+    def test_markdown_tables(self) -> None:
+        text = render_markdown(self.snapshot)
+        self.assertIn("# MicroSpek — слепок системы", text)
+        self.assertIn("## Процессор", text)
+        self.assertIn("| Параметр | Значение | Примечание |", text)
+        self.assertIn("| Модель | Test CPU |  |", text)
+        self.assertIn("| C: | 100,0 ГиБ |", text)
+        self.assertIn("тестовое предупреждение", text)
+
+    def test_markdown_english(self) -> None:
+        text = render_markdown(self.snapshot, lang="en")
+        self.assertIn("# MicroSpek — system snapshot", text)
+        self.assertIn("## Processor", text)
+        self.assertIn("| Model | Test CPU |  |", text)
+        self.assertIn("| C: | 100.0 GiB |", text)
+        self.assertIn("## Disk layout", text)
+        self.assertNotIn("слепок", text)
+
+    def test_redacted_markdown_hides_serial(self) -> None:
+        text = render_markdown(self.snapshot, redacted=True)
+        self.assertNotIn("SERIAL-123", text)
+        self.assertIn("скрыто", text)
 
 
 if __name__ == "__main__":
