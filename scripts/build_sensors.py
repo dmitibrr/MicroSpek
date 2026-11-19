@@ -14,9 +14,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# GitHub Actions uses cp1252 on Windows runners; Russian log lines must not
+# crash the release build before the helper is even produced.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = Path(__file__).resolve().parent.parent
-VENDOR = ROOT / "vendor" / "lhm" / "win-x64"
-SOURCE_DIR = ROOT / "tools" / "sensors"
+VENDOR = ROOT / "vendor" / "lhm" / "win-x64"SOURCE_DIR = ROOT / "tools" / "sensors"
 SOURCE = SOURCE_DIR / "MicroSpekSensors.cs"
 OUT_DIR = ROOT / "build" / "sensors"
 EXE = OUT_DIR / "MicroSpekSensors.exe"
