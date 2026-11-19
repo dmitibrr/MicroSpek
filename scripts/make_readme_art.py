@@ -508,12 +508,83 @@ def make_gui_preview(source: Path, target: Path) -> Image.Image | None:
     return result
 
 
+def make_social(lang: str = "en") -> Image.Image:
+    """1200x630 card for the GitHub / Telegram link preview."""
+    width, height = 1200, 630
+    texts = {
+        "en": (
+            "PC hardware snapshot",
+            ["TXT / JSON / MD", "RU / EN", "Unlicense"],
+            "4 standalone EXE editions · Windows 10/11",
+        ),
+        "ru": (
+            "Слепок железа ПК",
+            ["TXT / JSON / MD", "RU / EN", "Unlicense"],
+            "4 отдельные EXE-издания · Windows 10/11",
+        ),
+    }
+    subtitle, badges, footer = texts.get(lang, texts["en"])
+
+    canvas = linear_gradient((width, height), (233, 237, 242), BG)
+    glow = Image.new("L", (width, height), 0)
+    ImageDraw.Draw(glow).ellipse((-360, -420, 660, 420), fill=110)
+    canvas.alpha_composite(
+        fill_mask(glow.filter(ImageFilter.GaussianBlur(130)), (255, 255, 255), 150)
+    )
+
+    # Artwork cropped from the hero, with its own soft shadow.
+    hero = make_hero(lang).crop((850, 50, 1560, 590))
+    art = hero.resize((500, 382), Image.LANCZOS)
+    radius = 30
+    art_mask = Image.new("L", art.size, 0)
+    ImageDraw.Draw(art_mask).rounded_rectangle(
+        (0, 0, art.width - 1, art.height - 1), radius=radius, fill=255
+    )
+    box = (660, 116, 660 + art.width, 116 + art.height)
+    full_mask = Image.new("L", canvas.size, 0)
+    full_mask.paste(art_mask, (box[0], box[1]))
+    canvas.alpha_composite(
+        fill_mask(shifted(full_mask, 9, 9), DARK, 85).filter(ImageFilter.GaussianBlur(20))
+    )
+    canvas.alpha_composite(
+        fill_mask(shifted(full_mask, -9, -9), LIGHT, 190).filter(ImageFilter.GaussianBlur(20))
+    )
+    art.putalpha(art_mask)
+    canvas.alpha_composite(art, (box[0], box[1]))
+
+    embossed_text(canvas, (62, 112), "MicroSpek", font("seguisb.ttf", 92), INK,
+                  tracking=2, depth=5)
+    embossed_text(canvas, (68, 216), subtitle,
+                  font("segoeuil.ttf", 32), INK_SOFT, depth=3)
+
+    small = font("segoeuil.ttf", 20)
+    x = 66
+    for label in badges:
+        text_width = _text_width(label, small, 0)
+        badge_box = (x, 296, x + text_width + 38, 348)
+        mask = shape_mask(
+            canvas.size,
+            lambda d, badge_box=badge_box: d.rounded_rectangle(badge_box, radius=26, fill=255),
+        )
+        raised(canvas, mask, distance=5, blur=10, dark_alpha=65, light_alpha=200,
+               top=(229, 233, 239), bottom=(218, 223, 231))
+        layer = Image.new("L", canvas.size, 0)
+        _draw_tracked(layer, (badge_box[0] + 19, badge_box[1] + 12), label, small, 0, 255)
+        canvas.alpha_composite(fill_mask(layer, (108, 120, 140), 255))
+        x = badge_box[2] + 14
+
+    embossed_text(canvas, (68, 508), footer, font("segoeuil.ttf", 20), INK_SOFT, depth=2)
+    return canvas.convert("RGB")
+
+
 # --------------------------------------------------------------------------
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     images = {
         "hero.png": make_hero("en"),
         "hero-ru.png": make_hero("ru"),
+        "social-preview.png": make_social("en"),
+        "social-preview-ru.png": make_social("ru"),
         "icon-sensors.png": icon_sensors(),
         "icon-disks.png": icon_disks(),
         "icon-speed.png": icon_speed(),
