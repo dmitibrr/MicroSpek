@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <b>English</b> · <a href="README.ru.md">Русский</a>
+  <b>English</b> · <a href="README.ru.md">Русский</a> · <a href="https://dmitibrr.github.io/MicroSpek/">Сайт проекта</a>
 </p>
 
 <p align="center">
