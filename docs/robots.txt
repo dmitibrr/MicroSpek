@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dmitibrr.github.io/MicroSpek/sitemap.xml

@@ -99,6 +99,7 @@
       footer_license: "Общественное достояние · Unlicense",
       page_title: "MicroSpek — характеристики ПК без лишних движений",
       page_description: "MicroSpek — быстрый слепок железа ПК: GUI, CLI, TXT/JSON/Markdown и датчики. Четыре отдельные EXE-издания для Windows.",
+      og_image: "https://dmitibrr.github.io/MicroSpek/images/social-preview-ru.png",
       hero_image: "images/hero-ru.png",
       hero_alt: "MicroSpek — характеристики ПК без лишних движений",
       screen_alt_ru: "MicroSpek — вкладка «Сводка»",
@@ -200,6 +201,7 @@
       footer_license: "Public domain · Unlicense",
       page_title: "MicroSpek — PC specifications without the fuss",
       page_description: "MicroSpek — a fast hardware snapshot: GUI, CLI, TXT/JSON/Markdown and live sensors. Four standalone EXE editions for Windows.",
+      og_image: "https://dmitibrr.github.io/MicroSpek/images/social-preview.png",
       hero_image: "images/hero.png",
       hero_alt: "MicroSpek — PC specifications without the fuss",
       screen_alt_ru: "MicroSpek — the Summary tab (RU)",
@@ -324,7 +326,7 @@
     if (fromQuery) return fromQuery;
     var stored = readStoredLang();
     if (stored) return stored;
-    return (navigator.language || "").toLowerCase().indexOf("ru") === 0 ? "ru" : "en";
+    return "ru";
   }
 
   function setShot(value) {
@@ -345,6 +347,19 @@
 
     var description = document.querySelector('meta[name="description"]');
     if (description) description.setAttribute("content", dict.page_description);
+
+    var social = [
+      ['meta[property="og:title"]', dict.page_title],
+      ['meta[property="og:description"]', dict.page_description],
+      ['meta[property="og:image"]', dict.og_image],
+      ['meta[name="twitter:title"]', dict.page_title],
+      ['meta[name="twitter:description"]', dict.page_description],
+      ['meta[name="twitter:image"]', dict.og_image]
+    ];
+    social.forEach(function (pair) {
+      var tag = document.querySelector(pair[0]);
+      if (tag) tag.setAttribute("content", pair[1]);
+    });
 
     var nodes = document.querySelectorAll("[data-i18n]");
     for (var i = 0; i < nodes.length; i++) {
