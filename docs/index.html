@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MicroSpek — характеристики ПК без лишних движений</title>
+  <meta name="description" content="MicroSpek — быстрый слепок железа ПК: GUI, CLI, TXT/JSON/Markdown и датчики. Четыре отдельные EXE-издания для Windows.">
+  <link rel="icon" type="image/png" href="images/icon-private.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="orbs" aria-hidden="true">
+    <span class="orb orb-a"></span><span class="orb orb-b"></span><span class="orb orb-c"></span>
+  </div>
+
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="#top" aria-label="MicroSpek">
+        <span class="brand-mark">M</span>
+        <span class="brand-name">MicroSpek</span>
+      </a>
+      <nav class="nav" id="nav" aria-label="Main navigation">
+        <a href="#features" data-i18n="nav_features">Возможности</a>
+        <a href="#editions" data-i18n="nav_editions">Издания</a>
+        <a href="#preview" data-i18n="nav_preview">Вид окна</a>
+        <a href="#cli" data-i18n="nav_cli">CLI</a>
+        <a href="#faq" data-i18n="nav_faq">Вопросы</a>
+      </nav>
+      <div class="top-actions">
+        <div class="lang-switch" role="group" aria-label="Language">
+          <button type="button" class="lang-btn is-active" data-lang="ru">RU</button>
+          <button type="button" class="lang-btn" data-lang="en">EN</button>
+        </div>
+        <a class="btn btn-small btn-primary" href="https://github.com/dmitibrr/MicroSpek/releases/latest" data-i18n="download">Скачать</a>
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Menu" aria-expanded="false">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="top">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow" data-i18n="eyebrow">WINDOWS 10 / 11 · PORTABLE · OFFLINE</span>
+          <h1>MicroSpek</h1>
+          <p class="lead" data-i18n="hero_lead">Характеристики ПК без лишних движений</p>
+          <p class="hero-desc" data-i18n="hero_desc">Процессор, память с профилем XMP, диски с разметкой и SMART, видеокарта, мониторы, сеть, датчики — одним окном или одним файлом для ИИ.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="https://github.com/dmitibrr/MicroSpek/releases/latest" data-i18n="btn_download">Скачать для Windows</a>
+            <a class="btn" href="#preview" data-i18n="btn_explore">Посмотреть окно</a>
+          </div>
+          <div class="hero-stats">
+            <div><strong>≈ 5 с</strong><span data-i18n="stat_seconds">полный слепок</span></div>
+            <div><strong>4</strong><span data-i18n="stat_editions">издания под разные задачи</span></div>
+            <div><strong>0</strong><span data-i18n="stat_offline">телеметрии и сети</span></div>
+          </div>
+        </div>
+        <div class="hero-art">
+          <div class="art-card">
+            <img id="heroImage" src="images/hero-ru.png" alt="MicroSpek — характеристики ПК">
+          </div>
+          <span class="float-chip chip-a">Unlicense</span>
+          <span class="float-chip chip-b" data-i18n="chip_b">RU / EN</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust">
+      <div class="wrap trust-row">
+        <span class="trust-item"><i class="dot mint"></i><span data-i18n="trust_1">Готовый .exe — Python не нужен</span></span>
+        <span class="trust-item"><i class="dot blue"></i><span data-i18n="trust_2">Уведомления третьих лиц внутри</span></span>
+        <span class="trust-item"><i class="dot amber"></i><span data-i18n="trust_3">Общественное достояние</span></span>
+        <span class="trust-item"><i class="dot mint"></i><span data-i18n="trust_4">Работает офлайн</span></span>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="kicker" data-i18n="features_kicker">ЧТО ВНУТРИ</span>
+          <h2 data-i18n="features_title">Всё важное — без лишнего шума</h2>
+          <p data-i18n="features_desc">Несколько десятков полей о железе, собранных параллельно и поданных так, чтобы их было приятно читать.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="card feature reveal">
+            <img src="images/icon-sensors.png" alt="" class="feature-icon">
+            <h3 data-i18n="f1_title">Живые датчики</h3>
+            <p data-i18n="f1_desc">Температуры GPU и hot spot, обороты вентиляторов, напряжение, мощность, SMART-температуры и остаток ресурса дисков.</p>
+          </article>
+          <article class="card feature reveal">
+            <img src="images/icon-disks.png" alt="" class="feature-icon">
+            <h3 data-i18n="f2_title">Разметка дисков</h3>
+            <p data-i18n="f2_desc">Физические диски, разделы, тома и занятое место — цветной полосой с легендой, а не стеной цифр.</p>
+          </article>
+          <article class="card feature reveal">
+            <img src="images/icon-speed.png" alt="" class="feature-icon">
+            <h3 data-i18n="f3_title">Быстро</h3>
+            <p data-i18n="f3_desc">Коллекторы работают параллельно: полный слепок ≈ 4,5 с из исходников и ≈ 5,7 с в собранном exe.</p>
+          </article>
+          <article class="card feature reveal">
+            <img src="images/icon-private.png" alt="" class="feature-icon">
+            <h3 data-i18n="f4_title">Приватно</h3>
+            <p data-i18n="f4_desc">Флаг --redact прячет серийники, MAC и пользователя перед отправкой. Никакой телеметрии и собственных сетевых запросов.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tint" id="editions">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="kicker" data-i18n="editions_kicker">ЧЕТЫРЕ ИЗДАНИЯ</span>
+          <h2 data-i18n="editions_title">Возьмите только то, что нужно</h2>
+          <p data-i18n="editions_desc">Один код, четыре самостоятельные сборки. Любая работает без установки Python — распакуйте архив и запустите exe.</p>
+        </div>
+        <div class="edition-grid">
+          <article class="card edition reveal ed-popular">
+            <span class="tag tag-popular" data-i18n="ed_popular">ПОПУЛЯРНОЕ</span>
+            <h3>full</h3>
+            <p class="edition-role" data-i18n="ed_full_role">Для всех и вся</p>
+            <ul>
+              <li data-i18n="ed_full_1">Окно + консоль + датчики</li>
+              <li data-i18n="ed_full_2">SNAPSHOT.cmd в один клик</li>
+              <li data-i18n="ed_full_3">Уведомления третьих лиц внутри</li>
+            </ul>
+            <div class="edition-foot"><span class="size">≈ 30 MB</span><a class="btn btn-ghost" href="https://github.com/dmitibrr/MicroSpek/releases/latest" data-i18n="download">Скачать</a></div>
+          </article>
+          <article class="card edition reveal">
+            <span class="tag" data-i18n="ed_gui_tag">ДЛЯ ДОМА</span>
+            <h3>gui</h3>
+            <p class="edition-role" data-i18n="ed_gui_role">Приятное окно, без консоли</p>
+            <ul>
+              <li data-i18n="ed_gui_1">Обновлённый интерфейс RU / EN</li>
+              <li data-i18n="ed_gui_2">Меню экспорта TXT / JSON / MD</li>
+              <li data-i18n="ed_gui_3">Скриншот окна и датчики</li>
+            </ul>
+            <div class="edition-foot"><span class="size">≈ 21 MB</span><a class="btn btn-ghost" href="https://github.com/dmitibrr/MicroSpek/releases/latest" data-i18n="download">Скачать</a></div>
+          </article>
+          <article class="card edition reveal">
+            <span class="tag" data-i18n="ed_cli_tag">ДЛЯ СКРИПТОВ</span>
+            <h3>cli</h3>
+            <p class="edition-role" data-i18n="ed_cli_role">Консоль для агентов и CI</p>
+            <ul>
+              <li data-i18n="ed_cli_1">Флаги --summary, --output, --sections</li>
+              <li data-i18n="ed_cli_2">Опциональный microspek.json</li>
+              <li data-i18n="ed_cli_3">Никаких GUI-библиотек</li>
+            </ul>
+            <div class="edition-foot"><span class="size">≈ 11 MB</span><a class="btn btn-ghost" href="https://github.com/dmitibrr/MicroSpek/releases/latest" data-i18n="download">Скачать</a></div>
+          </article>
+          <article class="card edition reveal">
+            <span class="tag tag-mint" data-i18n="ed_snap_tag">ДЛЯ ВСТРАИВАНИЯ</span>
+            <h3>snapshot</h3>
+            <p class="edition-role" data-i18n="ed_snap_role">Максимально лёгкий и настраиваемый</p>
+            <ul>
+              <li data-i18n="ed_snap_1">Настройки в microspek.json</li>
+              <li data-i18n="ed_snap_2">Только нужные разделы и без датчиков</li>
+              <li data-i18n="ed_snap_3">≈ 3,6 с на типичном наборе</li>
+            </ul>
+            <div class="edition-foot"><span class="size">≈ 11 MB</span><a class="btn btn-ghost" href="https://github.com/dmitibrr/MicroSpek/releases/latest" data-i18n="download">Скачать</a></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="preview">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="kicker" data-i18n="preview_kicker">ТАК ВЫГЛЯДИТ ОКНО</span>
+          <h2 data-i18n="preview_title">Спокойный интерфейс, всё на виду</h2>
+          <p data-i18n="preview_desc">Вкладка «Сводка» собирает главное на одном экране, остальные показывают детали. Переключение языка — в правом верхнем углу.</p>
+        </div>
+        <div class="screen reveal">
+          <div class="screen-bar">
+            <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="screen-title">MicroSpek</span>
+            <div class="screen-switch" role="group" aria-label="Screenshot language">
+              <button type="button" class="shot-btn is-active" data-shot="ru">RU</button>
+              <button type="button" class="shot-btn" data-shot="en">EN</button>
+            </div>
+          </div>
+          <img id="screenImage" src="images/gui-preview-ru.png" alt="MicroSpek — вкладка Сводка">
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tint" id="cli">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="kicker" data-i18n="cli_kicker">КОМАНДНАЯ СТРОКА</span>
+          <h2 data-i18n="cli_title">Одна команда — готовый отчёт</h2>
+          <p data-i18n="cli_desc">TXT для чата, JSON для скриптов, Markdown для Notion и Obsidian. Язык отчёта задаётся флагом --lang.</p>
+        </div>
+        <div class="terminal reveal">
+          <div class="terminal-head">
+            <div class="terminal-tabs" role="tablist">
+              <button type="button" class="code-tab is-active" data-code="cli" data-i18n="tab_cli">CLI</button>
+              <button type="button" class="code-tab" data-code="md" data-i18n="tab_md">Markdown</button>
+              <button type="button" class="code-tab" data-code="json" data-i18n="tab_json">JSON</button>
+              <button type="button" class="code-tab" data-code="config" data-i18n="tab_config">Конфиг</button>
+            </div>
+            <button type="button" class="copy-btn" id="copyBtn" data-i18n="copy">Копировать</button>
+          </div>
+          <pre><code id="codeBlock"></code></pre>
+        </div>
+        <div class="cli-notes">
+          <div class="note"><span>01</span><p data-i18n="note_1">--redact скрывает серийные номера, MAC и пользователя — включайте перед отправкой.</p></div>
+          <div class="note"><span>02</span><p data-i18n="note_2">--no-dxdiag экономит до минуты: подробности DirectX обычно не нужны.</p></div>
+          <div class="note"><span>03</span><p data-i18n="note_3">--sections cpu,memory,storage и --no-sensors превращают полный сбор в быстрый частичный.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="privacy">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="kicker" data-i18n="privacy_kicker">ДАТЧИКИ И ПРИВАТНОСТЬ</span>
+          <h2 data-i18n="privacy_title">Ничего лишнего — даже в сети</h2>
+          <p data-i18n="privacy_desc">MicroSpek работает локально. Единственные сетевые значения в отчёте — адаптеры и адреса, которые уже знает Windows.</p>
+        </div>
+        <div class="privacy-grid">
+          <article class="card privacy-card reveal">
+            <div class="privacy-icon">◉</div>
+            <h3 data-i18n="p1_title">Датчики и права</h3>
+            <p data-i18n="p1_desc">Хелпер LibreHardwareMonitorLib работает без прав и сразу отдаёт доступное. Один запрос UAC добавляет температуры CPU и SMART дисков; отказ ничего не ломает. Для вентиляторов на многих платах нужен драйвер PawnIO — он не входит в архив.</p>
+          </article>
+          <article class="card privacy-card reveal">
+            <div class="privacy-icon">◇</div>
+            <h3 data-i18n="p2_title">Лицензия и ICMP</h3>
+            <p data-i18n="p2_desc">MicroSpek — Unlicense: используйте, меняйте и распространяйте без указания авторства. Лицензии LibreHardwareMonitorLib и HidSharp лежат в папке sensors рядом с программой. Никаких аккаунтов, ключей и телеметрии.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tint" id="faq">
+      <div class="wrap faq-wrap">
+        <div class="section-head left">
+          <span class="kicker" data-i18n="faq_kicker">ЧАСТЫЕ ВОПРОСЫ</span>
+          <h2 data-i18n="faq_title">Коротко о главном</h2>
+          <p data-i18n="faq_desc">Если ответа нет — issues на GitHub.</p>
+        </div>
+        <div class="faq-list">
+          <details class="reveal"><summary data-i18n="q1">Нужно ли ставить Python?</summary><p data-i18n="a1">Нет. В каждый архив входит готовый exe с Python внутри. Распакуйте папку целиком и запускайте.</p></details>
+          <details class="reveal"><summary data-i18n="q2">Почему SmartScreen ругается?</summary><p data-i18n="a2">Архивы не подписаны сертификатом. Нажмите «Подробнее» → «Выполнить в любом случае».</p></details>
+          <details class="reveal"><summary data-i18n="q3">Где температуры CPU и SMART?</summary><p data-i18n="a3">Их запрашивает кнопка «Датчики (админ)» или флаг --admin-sensors. Без прав остаются доступны GPU и SMART части дисков части дисков; для CPU-вентиляторов часто нужен PawnIO.</p></details>
+          <details class="reveal"><summary data-i18n="q4">Чем Markdown лучше TXT?</summary><p data-i18n="a4">Markdown — это таблицы и заголовки: файл сразу выглядит аккуратно в GitHub, Notion, Obsidian и чате с ИИ. TXT удобен для чтения в консоли.</p></details>
+          <details class="reveal"><summary data-i18n="q5">Можно ли встроить в свою программу?</summary><p data-i18n="a5">Да, для этого есть издание snapshot: microspek-snapshot.exe читает microspek.json, собирает только нужные разделы и пишет файл без окна и вопросов.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="wrap cta-inner reveal">
+        <h2 data-i18n="cta_title">Пора посмотреть, что у вас внутри</h2>
+        <p data-i18n="cta_desc">Скачайте любой из четырёх архивов — это бесплатно, офлайн и без регистрации.</p>
+        <a class="btn btn-primary btn-lg" href="https://github.com/dmitibrr/MicroSpek/releases/latest" data-i18n="cta_button">Перейти к загрузке</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <div class="footer-brand"><span class="brand-mark small">M</span><span>MicroSpek</span></div>
+      <nav class="footer-links">
+        <a href="https://github.com/dmitibrr/MicroSpek">GitHub</a>
+        <a href="https://github.com/dmitibrr/MicroSpek/releases/latest" data-i18n="footer_download">Релиз</a>
+        <a href="https://github.com/dmitibrr/MicroSpek/blob/main/README.md">README EN</a>
+        <a href="https://github.com/dmitibrr/MicroSpek/blob/main/README.ru.md">README RU</a>
+      </nav>
+      <p data-i18n="footer_license">Общественное достояние · Unlicense</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
